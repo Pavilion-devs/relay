@@ -1,0 +1,63 @@
+{
+  "public_url": "https://instrument-generations-reduce-experiments.trycloudflare.com",
+  "synthetic": true,
+  "model": "us.anthropic.claude-sonnet-4-6",
+  "tests": [
+    {
+      "text": "I must finish by minute 80.",
+      "status": 200,
+      "wall_seconds": 1.52,
+      "metrics": {
+        "model_calls": 1,
+        "latency_seconds": 1.045639546000075,
+        "usage": {
+          "inputTokens": 1234,
+          "outputTokens": 29,
+          "totalTokens": 1263,
+          "cacheReadInputTokens": 0,
+          "cacheWriteInputTokens": 0
+        }
+      },
+      "reply": "A proposed update is ready for review. Confirmed commitments are unchanged.",
+      "confirmed_facts_unchanged": true,
+      "draft": {
+        "resource_id": "amara",
+        "window_closes": 80,
+        "source": "I must finish by minute 80.",
+        "applied": false
+      },
+      "duplicate_did_not_create_second_draft": true,
+      "review_applied_time_constraint": true
+    },
+    {
+      "text": "I can take 24.",
+      "status": 200,
+      "wall_seconds": 1.27,
+      "metrics": {
+        "model_calls": 1,
+        "latency_seconds": 0.961763257000257,
+        "usage": {
+          "inputTokens": 1232,
+          "outputTokens": 15,
+          "totalTokens": 1247,
+          "cacheReadInputTokens": 0,
+          "cacheWriteInputTokens": 0
+        }
+      },
+      "reply": "Clarification needed: Which units does your capacity use: kilograms or crates?",
+      "confirmed_facts_unchanged": true,
+      "clarification": {
+        "text": "Which units does your capacity use: kilograms or crates?",
+        "reason": "missing_units"
+      }
+    }
+  ],
+  "boundaries": {
+    "role_restrictions": true,
+    "no_email_action": true,
+    "cross_origin_blocked": true,
+    "private_api_hidden": true,
+    "session_isolation": true
+  },
+  "status": "passed"
+}

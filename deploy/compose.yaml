@@ -1,0 +1,62 @@
+x-runtime: &runtime
+  image: ${RELAY_IMAGE:?Set an immutable release image}
+  platform: linux/amd64
+  user: "10001:10001"
+  read_only: true
+  cap_drop: [ALL]
+  security_opt: [no-new-privileges:true]
+  tmpfs: ["/tmp:mode=1777,size=32m"]
+  restart: unless-stopped
+  stop_grace_period: 30s
+  environment: &environment
+    RELAY_DATA_DIR: /var/lib/relay
+    RELAY_DB: /var/lib/relay/relay.sqlite3
+    RELAY_VOLUME_ID: ${RELAY_VOLUME_ID:?Set the initialized volume identity}
+    AWS_REGION: us-east-1
+    AWS_DEFAULT_REGION: us-east-1
+    RELAY_MODEL_ID: ${RELAY_MODEL_ID:-}
+  logging:
+    driver: json-file
+    options: {max-size: "5m", max-file: "2"}
+services:
+  api:
+    <<: *runtime
+    command: [api]
+    ports: ["127.0.0.1:${RELAY_PORT:-8765}:8765"]
+    volumes: [data:/var/lib/relay]
+    environment:
+      <<: *environment
+      RELAY_COGNITO_ISSUER: ${RELAY_COGNITO_ISSUER:-}
+      RELAY_COGNITO_CLIENT_ID: ${RELAY_COGNITO_CLIENT_ID:-}
+      RELAY_COGNITO_DOMAIN: ${RELAY_COGNITO_DOMAIN:-}
+      RELAY_LOGIN_CALLBACK: ${RELAY_LOGIN_CALLBACK:-http://localhost:8765/identity/callback}
+    healthcheck:
+      test: [CMD, python, -m, relay_core.operations, ready]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 45s
+  worker:
+    <<: *runtime
+    command: [worker]
+    volumes: [data:/var/lib/relay]
+  maintenance:
+    <<: *runtime
+    command: [maintenance]
+    volumes: [data:/var/lib/relay, backups:/var/backups/relay]
+    environment: &backup_environment
+      <<: *environment
+      RELAY_BACKUP_DIR: /var/backups/relay
+      RELAY_BACKUP_BUCKET: ${RELAY_BACKUP_BUCKET:-}
+      RELAY_BACKUP_PREFIX: ${RELAY_BACKUP_PREFIX:-relay}
+      RELAY_REQUIRE_REMOTE_BACKUP: ${RELAY_REQUIRE_REMOTE_BACKUP:-1}
+  tools:
+    <<: *runtime
+    profiles: [tools]
+    restart: "no"
+    command: [ready]
+    environment: *backup_environment
+    volumes: [data:/var/lib/relay, backups:/var/backups/relay]
+volumes:
+  data:
+  backups:

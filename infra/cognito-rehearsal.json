@@ -1,0 +1,128 @@
+{
+  "AWSTemplateFormatVersion": "2010-09-09",
+  "Description": "Relay local identity rehearsal: Cognito Lite, classic hosted login, public PKCE client. No application hosting or messaging infrastructure.",
+  "Resources": {
+    "ParticipantPool": {
+      "Type": "AWS::Cognito::UserPool",
+      "DeletionPolicy": "Retain",
+      "UpdateReplacePolicy": "Retain",
+      "Properties": {
+        "UserPoolName": "relay-participant-rehearsal",
+        "UserPoolTier": "LITE",
+        "UsernameAttributes": [
+          "email"
+        ],
+        "AutoVerifiedAttributes": [
+          "email"
+        ],
+        "UsernameConfiguration": {
+          "CaseSensitive": false
+        },
+        "AdminCreateUserConfig": {
+          "AllowAdminCreateUserOnly": true
+        },
+        "MfaConfiguration": "OFF",
+        "Policies": {
+          "PasswordPolicy": {
+            "MinimumLength": 14,
+            "RequireLowercase": true,
+            "RequireUppercase": true,
+            "RequireNumbers": true,
+            "RequireSymbols": true,
+            "TemporaryPasswordValidityDays": 1
+          }
+        },
+        "AccountRecoverySetting": {
+          "RecoveryMechanisms": [
+            {
+              "Name": "verified_email",
+              "Priority": 1
+            }
+          ]
+        },
+        "EmailConfiguration": {
+          "EmailSendingAccount": "COGNITO_DEFAULT"
+        },
+        "UserPoolTags": {
+          "Project": "Relay",
+          "Purpose": "identity-rehearsal"
+        }
+      }
+    },
+    "ParticipantClient": {
+      "Type": "AWS::Cognito::UserPoolClient",
+      "Properties": {
+        "UserPoolId": {
+          "Ref": "ParticipantPool"
+        },
+        "ClientName": "relay-local-pkce",
+        "GenerateSecret": false,
+        "AllowedOAuthFlowsUserPoolClient": true,
+        "AllowedOAuthFlows": [
+          "code"
+        ],
+        "AllowedOAuthScopes": [
+          "openid",
+          "email",
+          "aws.cognito.signin.user.admin"
+        ],
+        "SupportedIdentityProviders": [
+          "COGNITO"
+        ],
+        "CallbackURLs": [
+          "http://localhost:8765/identity/callback"
+        ],
+        "LogoutURLs": [
+          "http://localhost:8765/health"
+        ],
+        "PreventUserExistenceErrors": "ENABLED",
+        "EnableTokenRevocation": true,
+        "AccessTokenValidity": 15,
+        "IdTokenValidity": 15,
+        "RefreshTokenValidity": 1,
+        "TokenValidityUnits": {
+          "AccessToken": "minutes",
+          "IdToken": "minutes",
+          "RefreshToken": "days"
+        }
+      }
+    },
+    "ParticipantDomain": {
+      "Type": "AWS::Cognito::UserPoolDomain",
+      "Properties": {
+        "UserPoolId": {
+          "Ref": "ParticipantPool"
+        },
+        "Domain": {
+          "Fn::Sub": "relay-rehearsal-${AWS::AccountId}-${AWS::Region}"
+        },
+        "ManagedLoginVersion": 1
+      }
+    }
+  },
+  "Outputs": {
+    "Issuer": {
+      "Value": {
+        "Fn::Sub": "https://cognito-idp.${AWS::Region}.amazonaws.com/${ParticipantPool}"
+      }
+    },
+    "ClientId": {
+      "Value": {
+        "Ref": "ParticipantClient"
+      }
+    },
+    "Domain": {
+      "Value": {
+        "Fn::Sub": "https://${ParticipantDomain}.auth.${AWS::Region}.amazoncognito.com"
+      }
+    },
+    "Callback": {
+      "Value": "http://localhost:8765/identity/callback"
+    },
+    "UserPoolId": {
+      "Value": {
+        "Ref": "ParticipantPool"
+      }
+    }
+  }
+}

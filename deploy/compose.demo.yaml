@@ -1,0 +1,26 @@
+services:
+  public-demo:
+    image: ${RELAY_IMAGE:?Use the tested image}
+    platform: linux/amd64
+    user: "10001:10001"
+    entrypoint: [python, /demo/server.py]
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    tmpfs: ["/tmp:mode=1777,size=32m"]
+    restart: unless-stopped
+    ports: ["127.0.0.1:8780:8780"]
+    volumes: [/srv/relay/data:/var/lib/relay, /opt/relay/demo:/demo:ro]
+    environment:
+      PYTHONPATH: /app:/
+      RELAY_DEMO_API: http://api:8765
+      RELAY_DEMO_MANAGED: "1"
+      RELAY_DATA_DIR: /var/lib/relay
+      RELAY_DB: /var/lib/relay/relay.sqlite3
+      RELAY_VOLUME_ID: ${RELAY_VOLUME_ID:?Set volume identity}
+      AWS_REGION: us-east-1
+      RELAY_DEMO_AI: "1"
+      RELAY_DEMO_AI_CAP_MICRO_USD: ${RELAY_DEMO_AI_CAP_MICRO_USD:-1500000}
+    logging:
+      driver: json-file
+      options: {max-size: "5m", max-file: "2"}

@@ -1,0 +1,45 @@
+{
+  "public_url": "https://instrument-generations-reduce-experiments.trycloudflare.com",
+  "source_sha256": {
+    "demo/server.py": "5754685b560f42695a91944aa372aa2f536df85f7ccef862f23f3e135cfa6839",
+    "demo/demo_ai.py": "8eac3f57e62695a4a9dd8115b205dc5fe513d687d51bcae0a336b9a7ce328bea",
+    "demo/index.html": "dc05fdb20cc5a4dce975224d6becdf2e38ed68ccb2aaee868a65d1f9d788b399",
+    "demo/style.css": "e045a5a6b4bb708115e576d16cbea3e01df4e4ca4f46958e493486eb356a23c1",
+    "demo/app.js": "3c3bf85e14cdac14d3a78c49490556bec9740f29fad9e28d710d2a221cdb9d4d",
+    "deploy/compose.demo.yaml": "0cc741b083ef66984112f6e884e34ce74847dbf5d8e75869030d340a0b20764e"
+  },
+  "source_matches_running_release": true,
+  "tests_passed": 277,
+  "browser_console_errors": 0,
+  "browser_full_flow": [
+    "live capacity draft",
+    "explicit draft application",
+    "participant facts edited",
+    "plan generated",
+    "separate participant confirmations",
+    "coordinator approval",
+    "pickup",
+    "replacement proposed",
+    "custody unresolved rejected",
+    "unaffected pickup preserved",
+    "donor return",
+    "revision 2 committed",
+    "320 kg receipt completed"
+  ],
+  "final_browser_live_draft": {
+    "message": "I am available. I can carry 20 crates and must finish by minute 85.",
+    "capacity_kg": 160,
+    "available": true,
+    "window_closes": 85,
+    "latency_seconds_displayed": 1.3,
+    "model_calls_displayed": 1,
+    "applied": false
+  },
+  "persistent_ai_budget": {
+    "reserved_micro_usd": 156252,
+    "model_calls_reserved": 4
+  },
+  "budget_survived_companion_recreation": true,
+  "expiry_utc": "2026-09-15T04:02:08Z",
+  "synthetic_people_travel_food": true
+}

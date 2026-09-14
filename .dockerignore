@@ -1,0 +1,12 @@
+**
+!pyproject.toml
+!uv.lock
+!relay_core/
+!relay_core/**
+!deploy/
+!deploy/Dockerfile
+
+**/__pycache__/
+**/*.pyc
+
+!deploy/requirements.lock

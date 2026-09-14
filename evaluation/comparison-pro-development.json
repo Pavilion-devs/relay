@@ -1,0 +1,33 @@
+{
+  "version": 1,
+  "provenance": "Author-created synthetic language cases; held-out means reserved from tuning, not independently authored operational evidence.",
+  "cases": [
+    {
+      "id": "capacity_kg",
+      "split": "development",
+      "sender": "tunde",
+      "text": "My maximum capacity is 160 kg.",
+      "expected": {
+        "kind": "draft",
+        "fields": {
+          "capacity": 160
+        }
+      }
+    },
+    {
+      "id": "conditional_remainder",
+      "split": "development",
+      "sender": "tunde",
+      "text": "I can take 20 crates if another driver takes the rest.",
+      "expected": {
+        "kind": "draft",
+        "fields": {
+          "capacity": 160,
+          "conditional": true,
+          "condition_text": "if another driver takes the rest",
+          "condition_kind": "remaining_load_covered"
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,594 @@
+{
+  "AWSTemplateFormatVersion": "2010-09-09",
+  "Description": "Relay private synthetic rehearsal; reviewed parameters and hosting approval required",
+  "Parameters": {
+    "AmiId": {
+      "Type": "AWS::EC2::Image::Id",
+      "Description": "Resolved AL2023 x86_64 AMI; pin before launch"
+    },
+    "AvailabilityZone": {
+      "Type": "AWS::EC2::AvailabilityZone::Name"
+    },
+    "ExpiryUtc": {
+      "Type": "String",
+      "AllowedPattern": "\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}",
+      "Description": "Absolute UTC stop deadline; at most 24 hours from approval"
+    }
+  },
+  "Rules": {
+    "Region": {
+      "Assertions": [
+        {
+          "Assert": {
+            "Fn::Equals": [
+              {
+                "Ref": "AWS::Region"
+              },
+              "us-east-1"
+            ]
+          },
+          "AssertDescription": "This reviewed package is limited to us-east-1"
+        }
+      ]
+    }
+  },
+  "Resources": {
+    "Network": {
+      "Type": "AWS::EC2::VPC",
+      "Properties": {
+        "CidrBlock": "10.87.0.0/24",
+        "EnableDnsSupport": true,
+        "EnableDnsHostnames": true,
+        "Tags": [
+          {
+            "Key": "Project",
+            "Value": "RelayPrivateRehearsal"
+          }
+        ]
+      }
+    },
+    "Gateway": {
+      "Type": "AWS::EC2::InternetGateway",
+      "Properties": {
+        "Tags": [
+          {
+            "Key": "Project",
+            "Value": "RelayPrivateRehearsal"
+          }
+        ]
+      }
+    },
+    "GatewayAttachment": {
+      "Type": "AWS::EC2::VPCGatewayAttachment",
+      "Properties": {
+        "VpcId": {
+          "Ref": "Network"
+        },
+        "InternetGatewayId": {
+          "Ref": "Gateway"
+        }
+      }
+    },
+    "Subnet": {
+      "Type": "AWS::EC2::Subnet",
+      "Properties": {
+        "VpcId": {
+          "Ref": "Network"
+        },
+        "CidrBlock": "10.87.0.0/26",
+        "AvailabilityZone": {
+          "Ref": "AvailabilityZone"
+        },
+        "MapPublicIpOnLaunch": true,
+        "Tags": [
+          {
+            "Key": "Project",
+            "Value": "RelayPrivateRehearsal"
+          }
+        ]
+      }
+    },
+    "Routes": {
+      "Type": "AWS::EC2::RouteTable",
+      "Properties": {
+        "VpcId": {
+          "Ref": "Network"
+        },
+        "Tags": [
+          {
+            "Key": "Project",
+            "Value": "RelayPrivateRehearsal"
+          }
+        ]
+      }
+    },
+    "InternetRoute": {
+      "Type": "AWS::EC2::Route",
+      "Properties": {
+        "RouteTableId": {
+          "Ref": "Routes"
+        },
+        "DestinationCidrBlock": "0.0.0.0/0",
+        "GatewayId": {
+          "Ref": "Gateway"
+        }
+      },
+      "DependsOn": "GatewayAttachment"
+    },
+    "RouteAssociation": {
+      "Type": "AWS::EC2::SubnetRouteTableAssociation",
+      "Properties": {
+        "SubnetId": {
+          "Ref": "Subnet"
+        },
+        "RouteTableId": {
+          "Ref": "Routes"
+        }
+      }
+    },
+    "HostSecurityGroup": {
+      "Type": "AWS::EC2::SecurityGroup",
+      "Properties": {
+        "GroupDescription": "No ingress; TLS outbound for SSM, packages, Cognito and S3",
+        "VpcId": {
+          "Ref": "Network"
+        },
+        "SecurityGroupIngress": [],
+        "SecurityGroupEgress": [
+          {
+            "IpProtocol": "tcp",
+            "FromPort": 443,
+            "ToPort": 443,
+            "CidrIp": "0.0.0.0/0"
+          },
+          {
+            "IpProtocol": "tcp",
+            "FromPort": 7844,
+            "ToPort": 7844,
+            "CidrIp": "0.0.0.0/0",
+            "Description": "Temporary judge demo Cloudflare HTTP2 tunnel"
+          }
+        ],
+        "Tags": [
+          {
+            "Key": "Project",
+            "Value": "RelayPrivateRehearsal"
+          }
+        ]
+      }
+    },
+    "BackupBucket": {
+      "Type": "AWS::S3::Bucket",
+      "Properties": {
+        "BucketEncryption": {
+          "ServerSideEncryptionConfiguration": [
+            {
+              "ServerSideEncryptionByDefault": {
+                "SSEAlgorithm": "AES256"
+              }
+            }
+          ]
+        },
+        "PublicAccessBlockConfiguration": {
+          "BlockPublicAcls": true,
+          "BlockPublicPolicy": true,
+          "IgnorePublicAcls": true,
+          "RestrictPublicBuckets": true
+        },
+        "OwnershipControls": {
+          "Rules": [
+            {
+              "ObjectOwnership": "BucketOwnerEnforced"
+            }
+          ]
+        },
+        "VersioningConfiguration": {
+          "Status": "Enabled"
+        },
+        "LifecycleConfiguration": {
+          "Rules": [
+            {
+              "Id": "SyntheticRehearsalRetention",
+              "Status": "Enabled",
+              "Prefix": "",
+              "ExpirationInDays": 7,
+              "NoncurrentVersionExpiration": {
+                "NoncurrentDays": 7
+              },
+              "AbortIncompleteMultipartUpload": {
+                "DaysAfterInitiation": 1
+              }
+            },
+            {
+              "Id": "ExpiredMarkers",
+              "Status": "Enabled",
+              "Prefix": "",
+              "ExpiredObjectDeleteMarker": true
+            }
+          ]
+        },
+        "Tags": [
+          {
+            "Key": "Project",
+            "Value": "RelayPrivateRehearsal"
+          }
+        ]
+      },
+      "DeletionPolicy": "Retain",
+      "UpdateReplacePolicy": "Retain"
+    },
+    "BackupPolicy": {
+      "Type": "AWS::S3::BucketPolicy",
+      "Properties": {
+        "Bucket": {
+          "Ref": "BackupBucket"
+        },
+        "PolicyDocument": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Effect": "Deny",
+              "Principal": "*",
+              "Action": "s3:*",
+              "Resource": [
+                {
+                  "Fn::GetAtt": [
+                    "BackupBucket",
+                    "Arn"
+                  ]
+                },
+                {
+                  "Fn::Sub": "${BackupBucket.Arn}/*"
+                }
+              ],
+              "Condition": {
+                "Bool": {
+                  "aws:SecureTransport": "false"
+                }
+              }
+            }
+          ]
+        }
+      },
+      "DeletionPolicy": "Retain",
+      "UpdateReplacePolicy": "Retain"
+    },
+    "DataVolume": {
+      "Type": "AWS::EC2::Volume",
+      "Properties": {
+        "AvailabilityZone": {
+          "Ref": "AvailabilityZone"
+        },
+        "Size": 12,
+        "VolumeType": "gp3",
+        "Encrypted": true,
+        "Tags": [
+          {
+            "Key": "Project",
+            "Value": "RelayPrivateRehearsal"
+          }
+        ]
+      },
+      "DeletionPolicy": "Retain",
+      "UpdateReplacePolicy": "Retain"
+    },
+    "HostRole": {
+      "Type": "AWS::IAM::Role",
+      "Properties": {
+        "AssumeRolePolicyDocument": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Principal": {
+                "Service": "ec2.amazonaws.com"
+              },
+              "Action": "sts:AssumeRole"
+            }
+          ]
+        },
+        "ManagedPolicyArns": [
+          {
+            "Fn::Sub": "arn:${AWS::Partition}:iam::aws:policy/AmazonSSMManagedInstanceCore"
+          }
+        ],
+        "Policies": [
+          {
+            "PolicyName": "RehearsalBackupAndRelease",
+            "PolicyDocument": {
+              "Version": "2012-10-17",
+              "Statement": [
+                {
+                  "Effect": "Allow",
+                  "Action": [
+                    "s3:PutObject",
+                    "s3:AbortMultipartUpload"
+                  ],
+                  "Resource": [
+                    {
+                      "Fn::Sub": "${BackupBucket.Arn}/relay/*"
+                    }
+                  ]
+                },
+                {
+                  "Effect": "Allow",
+                  "Action": [
+                    "s3:GetObject"
+                  ],
+                  "Resource": [
+                    {
+                      "Fn::Sub": "${BackupBucket.Arn}/release/*"
+                    }
+                  ]
+                }
+              ]
+            }
+          },
+          {
+            "PolicyName": "PublicInterpretationSonnetOnly",
+            "PolicyDocument": {
+              "Version": "2012-10-17",
+              "Statement": [
+                {
+                  "Effect": "Allow",
+                  "Action": [
+                    "bedrock:InvokeModel"
+                  ],
+                  "Resource": [
+                    {
+                      "Fn::Sub": "arn:${AWS::Partition}:bedrock:us-east-1:${AWS::AccountId}:inference-profile/us.anthropic.claude-sonnet-4-6"
+                    },
+                    "arn:aws:bedrock:us-east-1::foundation-model/anthropic.claude-sonnet-4-6",
+                    "arn:aws:bedrock:us-east-2::foundation-model/anthropic.claude-sonnet-4-6",
+                    "arn:aws:bedrock:us-west-2::foundation-model/anthropic.claude-sonnet-4-6"
+                  ]
+                },
+                {
+                  "Effect": "Allow",
+                  "Action": [
+                    "bedrock:CountTokens"
+                  ],
+                  "Resource": "arn:aws:bedrock:us-east-1::foundation-model/anthropic.claude-sonnet-4-6"
+                }
+              ]
+            }
+          }
+        ],
+        "Tags": [
+          {
+            "Key": "Project",
+            "Value": "RelayPrivateRehearsal"
+          }
+        ]
+      }
+    },
+    "HostProfile": {
+      "Type": "AWS::IAM::InstanceProfile",
+      "Properties": {
+        "Roles": [
+          {
+            "Ref": "HostRole"
+          }
+        ]
+      }
+    },
+    "Host": {
+      "Type": "AWS::EC2::Instance",
+      "Properties": {
+        "ImageId": {
+          "Ref": "AmiId"
+        },
+        "InstanceType": "t3.small",
+        "AvailabilityZone": {
+          "Ref": "AvailabilityZone"
+        },
+        "IamInstanceProfile": {
+          "Ref": "HostProfile"
+        },
+        "CreditSpecification": {
+          "CPUCredits": "standard"
+        },
+        "InstanceInitiatedShutdownBehavior": "stop",
+        "MetadataOptions": {
+          "HttpTokens": "required",
+          "HttpEndpoint": "enabled",
+          "HttpPutResponseHopLimit": 2
+        },
+        "NetworkInterfaces": [
+          {
+            "DeviceIndex": "0",
+            "AssociatePublicIpAddress": true,
+            "SubnetId": {
+              "Ref": "Subnet"
+            },
+            "GroupSet": [
+              {
+                "Ref": "HostSecurityGroup"
+              }
+            ]
+          }
+        ],
+        "BlockDeviceMappings": [
+          {
+            "DeviceName": "/dev/xvda",
+            "Ebs": {
+              "VolumeSize": 8,
+              "VolumeType": "gp3",
+              "Encrypted": true,
+              "DeleteOnTermination": true
+            }
+          }
+        ],
+        "UserData": {
+          "Fn::Base64": {
+            "Fn::Sub": "#!/bin/bash\n# Embedded by scripts/prepare_aws_launch.py; runs only on the new dedicated EC2 host.\nset -euo pipefail\numask 077\nexpiry='${ExpiryUtc}'\nvolume_id='${DataVolume}'\n\n# Install expiry before package installation or waiting for the data attachment.\ninstall -d -m 0700 /etc/relay\nprintf '%s\\n' \"$expiry\" > /etc/relay/expires-utc\ncat > /usr/local/sbin/relay-expiry-check <<'CHECK'\n#!/bin/bash\nset -euo pipefail\ndeadline=$(date -u -d \"$(cat /etc/relay/expires-utc)Z\" +%s)\nif [ \"$(date -u +%s)\" -ge \"$deadline\" ]; then\n  shutdown -h now\n  exit 1\nfi\nCHECK\nchmod 0700 /usr/local/sbin/relay-expiry-check\ncat > /etc/systemd/system/relay-expiry.service <<'UNIT'\n[Unit]\nDescription=Enforce the absolute Relay rehearsal deadline\n[Service]\nType=oneshot\nExecStart=/usr/local/sbin/relay-expiry-check\nUNIT\ncat > /etc/systemd/system/relay-expiry.timer <<'UNIT'\n[Unit]\nDescription=Check Relay expiry at boot and every minute\n[Timer]\nOnBootSec=15s\nOnUnitActiveSec=60s\nAccuracySec=1s\n[Install]\nWantedBy=timers.target\nUNIT\nsystemctl daemon-reload\nsystemctl enable --now relay-expiry.timer\n/usr/local/sbin/relay-expiry-check\nsystemctl enable --now amazon-ssm-agent\ndnf install -y docker\n\n# Select only the separately created volume by its Nitro serial, never by disk order.\nexpected_serial=$(printf '%s' \"$volume_id\" | tr -d '-')\ndevice=''\nfor attempt in $(seq 1 120); do\n  for serial_file in /sys/block/nvme*n1/device/serial; do\n    [ -f \"$serial_file\" ] || continue\n    serial=$(tr -d '[:space:]' < \"$serial_file\")\n    if [ \"$serial\" = \"$expected_serial\" ]; then\n      disk=$(basename \"$(dirname \"$(dirname \"$serial_file\")\")\")\n      device=/dev/$disk\n      break\n    fi\n  done\n  [ -n \"$device\" ] && break\n  sleep 2\ndone\n[ -b \"$device\" ] || { echo 'Expected data EBS volume absent' >&2; exit 1; }\n# A signature of any kind prevents automatic formatting. Existing filesystems need review.\n[ -z \"$(wipefs --noheadings --output TYPE \"$device\")\" ] || {\n  echo 'Data disk is not blank; refusing automatic initialization' >&2; exit 1;\n}\n[ \"$(lsblk -nr -o NAME \"$device\" | wc -l)\" -eq 1 ] || exit 1\nmkfs.ext4 -q \"$device\"\nuuid=$(blkid -s UUID -o value \"$device\")\n[ -n \"$uuid\" ] || exit 1\ninstall -d /srv/relay\nprintf 'UUID=%s /srv/relay ext4 defaults 0 2\\n' \"$uuid\" >> /etc/fstab\nmount /srv/relay\n[ \"$(findmnt -n -o UUID --target /srv/relay)\" = \"$uuid\" ] || exit 1\ninstall -d -m 0700 -o 10001 -g 10001 /srv/relay/data /srv/relay/backups\nprintf 'RELAY_FILESYSTEM_UUID=%s\\n' \"$uuid\" > /etc/relay/host.env\ninstall -d /etc/systemd/system/docker.service.d\ncat > /etc/systemd/system/docker.service.d/relay-volume.conf <<'UNIT'\n[Unit]\nRequiresMountsFor=/srv/relay\n[Service]\nExecStartPre=/usr/local/sbin/relay-expiry-check\nUNIT\nsystemctl daemon-reload\nsystemctl enable --now docker\n\n# Fixed official binary and independently recorded release checksum.\ninstall -d /usr/local/lib/docker/cli-plugins\ncurl --fail --location --retry 3 --max-time 180 \\\n  https://github.com/docker/compose/releases/download/v2.39.4/docker-compose-linux-x86_64 \\\n  -o /usr/local/lib/docker/cli-plugins/docker-compose.partial\nprintf '%s  %s\\n' \\\n  7af95166a730b87e172d4fc9aefea8725d3c6c7327d59149267b452114ddb7d4 \\\n  /usr/local/lib/docker/cli-plugins/docker-compose.partial | sha256sum --check --status\nmv /usr/local/lib/docker/cli-plugins/docker-compose.partial \\\n  /usr/local/lib/docker/cli-plugins/docker-compose\nchmod 0755 /usr/local/lib/docker/cli-plugins/docker-compose\ndocker compose version\n/usr/local/sbin/relay-expiry-check\ntouch /etc/relay/host-prepared\n# App installation is a separate checksum-verified operator step, described in aws-launch.md.\n"
+          }
+        },
+        "Tags": [
+          {
+            "Key": "Project",
+            "Value": "RelayPrivateRehearsal"
+          },
+          {
+            "Key": "ExpiresUtc",
+            "Value": {
+              "Ref": "ExpiryUtc"
+            }
+          }
+        ]
+      },
+      "DependsOn": [
+        "InternetRoute",
+        "RouteAssociation"
+      ]
+    },
+    "DataAttachment": {
+      "Type": "AWS::EC2::VolumeAttachment",
+      "Properties": {
+        "Device": "/dev/sdf",
+        "InstanceId": {
+          "Ref": "Host"
+        },
+        "VolumeId": {
+          "Ref": "DataVolume"
+        }
+      }
+    },
+    "ExpiryGroup": {
+      "Type": "AWS::Scheduler::ScheduleGroup",
+      "Properties": {
+        "Tags": [
+          {
+            "Key": "Project",
+            "Value": "RelayPrivateRehearsal"
+          }
+        ]
+      }
+    },
+    "ExpiryRole": {
+      "Type": "AWS::IAM::Role",
+      "Properties": {
+        "AssumeRolePolicyDocument": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Principal": {
+                "Service": "scheduler.amazonaws.com"
+              },
+              "Action": "sts:AssumeRole",
+              "Condition": {
+                "StringEquals": {
+                  "aws:SourceAccount": {
+                    "Ref": "AWS::AccountId"
+                  }
+                },
+                "ArnEquals": {
+                  "aws:SourceArn": {
+                    "Fn::GetAtt": [
+                      "ExpiryGroup",
+                      "Arn"
+                    ]
+                  }
+                }
+              }
+            }
+          ]
+        },
+        "Policies": [
+          {
+            "PolicyName": "StopOnlyThisHost",
+            "PolicyDocument": {
+              "Version": "2012-10-17",
+              "Statement": [
+                {
+                  "Effect": "Allow",
+                  "Action": [
+                    "ec2:StopInstances"
+                  ],
+                  "Resource": [
+                    {
+                      "Fn::Sub": "arn:${AWS::Partition}:ec2:${AWS::Region}:${AWS::AccountId}:instance/${Host}"
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        ],
+        "Tags": [
+          {
+            "Key": "Project",
+            "Value": "RelayPrivateRehearsal"
+          }
+        ]
+      }
+    },
+    "AbsoluteStop": {
+      "Type": "AWS::Scheduler::Schedule",
+      "Properties": {
+        "GroupName": {
+          "Ref": "ExpiryGroup"
+        },
+        "ScheduleExpression": {
+          "Fn::Sub": "at(${ExpiryUtc})"
+        },
+        "ScheduleExpressionTimezone": "UTC",
+        "FlexibleTimeWindow": {
+          "Mode": "OFF"
+        },
+        "State": "ENABLED",
+        "Target": {
+          "Arn": {
+            "Fn::Sub": "arn:${AWS::Partition}:scheduler:::aws-sdk:ec2:stopInstances"
+          },
+          "RoleArn": {
+            "Fn::GetAtt": [
+              "ExpiryRole",
+              "Arn"
+            ]
+          },
+          "Input": {
+            "Fn::Sub": "{\"InstanceIds\":[\"${Host}\"]}"
+          },
+          "RetryPolicy": {
+            "MaximumEventAgeInSeconds": 3600,
+            "MaximumRetryAttempts": 5
+          }
+        }
+      }
+    }
+  },
+  "Outputs": {
+    "InstanceId": {
+      "Value": {
+        "Ref": "Host"
+      }
+    },
+    "RetainedDataVolumeId": {
+      "Value": {
+        "Ref": "DataVolume"
+      }
+    },
+    "RetainedBucketName": {
+      "Value": {
+        "Ref": "BackupBucket"
+      }
+    },
+    "ExpiryScheduleName": {
+      "Value": {
+        "Ref": "AbsoluteStop"
+      }
+    },
+    "ExpiryScheduleGroup": {
+      "Value": {
+        "Ref": "ExpiryGroup"
+      }
+    },
+    "DeadlineUtc": {
+      "Value": {
+        "Ref": "ExpiryUtc"
+      }
+    }
+  }
+}

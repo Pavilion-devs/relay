@@ -1,0 +1,9 @@
+[Unit]
+Description=Stop rehearsal compute after 24 hours of host uptime
+
+[Timer]
+OnBootSec=24h
+Unit=relay-rehearsal-stop.service
+
+[Install]
+WantedBy=timers.target

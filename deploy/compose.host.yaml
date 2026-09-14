@@ -1,0 +1,10 @@
+# Cloud override: /srv/relay is the separately mounted encrypted data disk.
+services:
+  api:
+    volumes: [/srv/relay/data:/var/lib/relay]
+  worker:
+    volumes: [/srv/relay/data:/var/lib/relay]
+  maintenance:
+    volumes: [/srv/relay/data:/var/lib/relay, /srv/relay/backups:/var/backups/relay]
+  tools:
+    volumes: [/srv/relay/data:/var/lib/relay, /srv/relay/backups:/var/backups/relay]

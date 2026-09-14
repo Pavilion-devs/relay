@@ -1,0 +1,195 @@
+{
+  "AWSTemplateFormatVersion": "2010-09-09",
+  "Description": "Relay SES feedback via restricted SNS and SQS; no email sends.",
+  "Resources": {
+    "ConfigurationSet": {
+      "Type": "AWS::SES::ConfigurationSet",
+      "Properties": {
+        "Name": "relay-rehearsal-events"
+      }
+    },
+    "EventTopic": {
+      "Type": "AWS::SNS::Topic"
+    },
+    "DeadLetters": {
+      "Type": "AWS::SQS::Queue",
+      "Properties": {
+        "SqsManagedSseEnabled": true,
+        "MessageRetentionPeriod": 1209600
+      }
+    },
+    "EventsQueue": {
+      "Type": "AWS::SQS::Queue",
+      "Properties": {
+        "SqsManagedSseEnabled": true,
+        "VisibilityTimeout": 60,
+        "MessageRetentionPeriod": 345600,
+        "RedrivePolicy": {
+          "deadLetterTargetArn": {
+            "Fn::GetAtt": [
+              "DeadLetters",
+              "Arn"
+            ]
+          },
+          "maxReceiveCount": 5
+        }
+      }
+    },
+    "TopicPolicy": {
+      "Type": "AWS::SNS::TopicPolicy",
+      "Properties": {
+        "Topics": [
+          {
+            "Ref": "EventTopic"
+          }
+        ],
+        "PolicyDocument": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Principal": {
+                "Service": "ses.amazonaws.com"
+              },
+              "Action": "sns:Publish",
+              "Resource": {
+                "Ref": "EventTopic"
+              },
+              "Condition": {
+                "StringEquals": {
+                  "AWS:SourceAccount": {
+                    "Ref": "AWS::AccountId"
+                  }
+                },
+                "ArnEquals": {
+                  "AWS:SourceArn": {
+                    "Fn::Sub": "arn:${AWS::Partition}:ses:${AWS::Region}:${AWS::AccountId}:configuration-set/${ConfigurationSet}"
+                  }
+                }
+              }
+            }
+          ]
+        }
+      }
+    },
+    "QueuePolicy": {
+      "Type": "AWS::SQS::QueuePolicy",
+      "Properties": {
+        "Queues": [
+          {
+            "Ref": "EventsQueue"
+          }
+        ],
+        "PolicyDocument": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Principal": {
+                "Service": "sns.amazonaws.com"
+              },
+              "Action": "sqs:SendMessage",
+              "Resource": {
+                "Fn::GetAtt": [
+                  "EventsQueue",
+                  "Arn"
+                ]
+              },
+              "Condition": {
+                "ArnEquals": {
+                  "aws:SourceArn": {
+                    "Ref": "EventTopic"
+                  }
+                }
+              }
+            },
+            {
+              "Effect": "Deny",
+              "Principal": "*",
+              "Action": "sqs:SendMessage",
+              "Resource": {
+                "Fn::GetAtt": [
+                  "EventsQueue",
+                  "Arn"
+                ]
+              },
+              "Condition": {
+                "ArnNotEquals": {
+                  "aws:SourceArn": {
+                    "Ref": "EventTopic"
+                  }
+                }
+              }
+            }
+          ]
+        }
+      }
+    },
+    "Subscription": {
+      "Type": "AWS::SNS::Subscription",
+      "DependsOn": "QueuePolicy",
+      "Properties": {
+        "TopicArn": {
+          "Ref": "EventTopic"
+        },
+        "Protocol": "sqs",
+        "Endpoint": {
+          "Fn::GetAtt": [
+            "EventsQueue",
+            "Arn"
+          ]
+        },
+        "RawMessageDelivery": false
+      }
+    },
+    "Destination": {
+      "Type": "AWS::SES::ConfigurationSetEventDestination",
+      "DependsOn": [
+        "TopicPolicy",
+        "Subscription"
+      ],
+      "Properties": {
+        "ConfigurationSetName": {
+          "Ref": "ConfigurationSet"
+        },
+        "EventDestination": {
+          "Name": "relay-events",
+          "Enabled": true,
+          "MatchingEventTypes": [
+            "delivery",
+            "bounce",
+            "complaint",
+            "reject"
+          ],
+          "SnsDestination": {
+            "TopicARN": {
+              "Ref": "EventTopic"
+            }
+          }
+        }
+      }
+    }
+  },
+  "Outputs": {
+    "QueueURL": {
+      "Value": {
+        "Ref": "EventsQueue"
+      }
+    },
+    "TopicARN": {
+      "Value": {
+        "Ref": "EventTopic"
+      }
+    },
+    "ConfigurationSet": {
+      "Value": {
+        "Ref": "ConfigurationSet"
+      }
+    },
+    "DeadLetterQueueURL": {
+      "Value": {
+        "Ref": "DeadLetters"
+      }
+    }
+  }
+}

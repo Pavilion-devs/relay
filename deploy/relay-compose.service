@@ -1,0 +1,18 @@
+[Unit]
+Description=Relay private rehearsal services
+Requires=docker.service
+After=docker.service network-online.target
+RequiresMountsFor=/srv/relay
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+EnvironmentFile=/etc/relay/host.env
+WorkingDirectory=/opt/relay
+ExecStart=/opt/relay/deploy/start-host.sh /etc/relay/runtime.env ${RELAY_FILESYSTEM_UUID}
+ExecStop=/usr/bin/docker compose --env-file /etc/relay/runtime.env -f deploy/compose.yaml -f deploy/compose.host.yaml -p relay-rehearsal stop
+TimeoutStartSec=180
+TimeoutStopSec=120
+
+[Install]
+WantedBy=multi-user.target

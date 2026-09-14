@@ -1,0 +1,7 @@
+[Unit]
+Description=Stop the bounded Relay rehearsal host
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/systemctl stop relay-compose.service
+ExecStart=/usr/sbin/shutdown -h now

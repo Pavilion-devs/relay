@@ -1,0 +1,16 @@
+.venv/
+__pycache__/
+.pytest_cache/
+.ruff_cache/
+.env
+*.sqlite3*
+.DS_Store
+web/node_modules/
+web/dist/
+web/.wrangler/
+web/tsconfig.tsbuildinfo
+web/.next/
+web/.vite/
+
+# Private local grants, databases and rehearsal artifacts
+.data/

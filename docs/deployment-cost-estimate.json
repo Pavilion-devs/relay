@@ -1,0 +1,39 @@
+{
+  "status": "planning_only_no_resources_created",
+  "region": "us-east-1",
+  "currency": "USD",
+  "checked_date": "2026-09-14",
+  "assumptions": {
+    "instance": "t3.small Linux On-Demand, Standard CPU credits",
+    "instances": 1,
+    "public_ipv4_addresses": 1,
+    "gp3_total_gb": 20,
+    "month_hours": 730,
+    "rehearsal_hours": 24,
+    "root_gb": 8,
+    "persistent_data_gb": 12
+  },
+  "rates": {
+    "instance_hour": 0.0209,
+    "ipv4_hour": 0.005,
+    "gp3_gb_month": 0.08
+  },
+  "monthly_base_usd": 20.507,
+  "24h_base_usd": 0.6742,
+  "excluded": [
+    "Model inference",
+    "SES/SNS/SQS/Cognito usage",
+    "Snapshots or S3 backup storage and requests",
+    "Logs and egress",
+    "Tax",
+    "Retained storage after teardown"
+  ],
+  "suggested_separate_rehearsal_authorization_usd": 5,
+  "suggested_budget_is_not_authorization": true,
+  "sources": {
+    "compute": "https://aws.amazon.com/ec2/instance-types/t3/",
+    "ipv4": "https://aws.amazon.com/vpc/pricing/",
+    "storage": "https://aws.amazon.com/ebs/volume-types/",
+    "session_manager": "https://aws.amazon.com/systems-manager/pricing/"
+  }
+}

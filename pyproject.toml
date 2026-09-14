@@ -1,0 +1,32 @@
+[project]
+name = "relay"
+version = "0.1.0"
+requires-python = ">=3.12"
+dependencies = [
+    "boto3[crt]>=1.43.92",
+    "fastapi>=0.141.1",
+    "pydantic>=2.13.5",
+    "pyjwt[crypto]>=2.10,<3",
+    "strands-agents>=1.55.1",
+    "uvicorn[standard]>=0.52.4",
+]
+
+[dependency-groups]
+dev = [
+    "httpx>=0.28.1",
+    "pytest>=9.1.1",
+    "ruff>=0.16.7",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["relay_core"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
